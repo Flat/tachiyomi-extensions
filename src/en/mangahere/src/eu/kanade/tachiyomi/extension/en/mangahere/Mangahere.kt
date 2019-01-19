@@ -47,16 +47,16 @@ class Mangahere : ParsedHttpSource() {
             .sslSocketFactory(sslContext.socketFactory, trustManager)
             .build()
 
-    override fun popularMangaSelector() = "div.directory_list > ul > li"
+    override fun popularMangaSelector() = ".manga-list-1-list > li"
 
-    override fun latestUpdatesSelector() = "div.directory_list > ul > li"
+    override fun latestUpdatesSelector() = ".manga-list-1-list > li"
 
     override fun popularMangaRequest(page: Int): Request {
-        return GET("$baseUrl/directory/$page.htm?views.za", headers)
+        return GET("$baseUrl/directory/$page.htm", headers)
     }
 
     override fun latestUpdatesRequest(page: Int): Request {
-        return GET("$baseUrl/directory/$page.htm?last_chapter_time.za", headers)
+        return GET("$baseUrl/new/$page.htm", headers)
     }
 
     private fun mangaFromElement(query: String, element: Element): SManga {
@@ -69,16 +69,16 @@ class Mangahere : ParsedHttpSource() {
     }
 
     override fun popularMangaFromElement(element: Element): SManga {
-        return mangaFromElement("div.title > a", element)
+        return mangaFromElement("li > a", element)
     }
 
     override fun latestUpdatesFromElement(element: Element): SManga {
         return popularMangaFromElement(element)
     }
 
-    override fun popularMangaNextPageSelector() = "div.next-page > a.next"
+    override fun popularMangaNextPageSelector() = ".pager-list-left > a:nth-child(12)"
 
-    override fun latestUpdatesNextPageSelector() = "div.next-page > a.next"
+    override fun latestUpdatesNextPageSelector() = ".pager-list-left > a:nth-child(12)"
 
     override fun searchMangaRequest(page: Int, query: String, filters: FilterList): Request {
         val url = HttpUrl.parse("$baseUrl/search.php?name_method=cw&author_method=cw&artist_method=cw&advopts=1")!!.newBuilder().addQueryParameter("name", query)
@@ -107,21 +107,21 @@ class Mangahere : ParsedHttpSource() {
     override fun searchMangaNextPageSelector() = "div.next-page > a.next"
 
     override fun mangaDetailsParse(document: Document): SManga {
-        val detailElement = document.select(".manga_detail_top").first()
-        val infoElement = detailElement.select(".detail_topText").first()
+        val detailElement = document.select(".detail-info").first()
+        val infoElement = detailElement.select(".detail-info-right").first()
         val licensedElement = document.select(".mt10.color_ff00.mb10").first()
 
         val manga = SManga.create()
         manga.author = infoElement.select("a[href*=author/]").first()?.text()
         manga.artist = infoElement.select("a[href*=artist/]").first()?.text()
-        manga.genre = infoElement.select("li:eq(3)").first()?.text()?.substringAfter("Genre(s):")
-        manga.description = infoElement.select("#show").first()?.text()?.substringBeforeLast("Show less")
-        manga.thumbnail_url = detailElement.select("img.img").first()?.attr("src")
+        manga.genre = infoElement.select(".detail-info-right-tag-list").first()?.text()?.split(" ")?.joinToString(", ")
+        manga.description = infoElement.select(".detail-info-right-content").first()?.text()?.removeSuffix("...more")
+        manga.thumbnail_url = detailElement.select(".detail-info-cover > img").first()?.attr("src")
 
         if (licensedElement?.text()?.contains("licensed") == true) {
             manga.status = SManga.LICENSED
         } else {
-            manga.status = infoElement.select("li:eq(6)").first()?.text().orEmpty().let { parseStatus(it) }
+            manga.status = infoElement.select(".detail-info-right-title-tip").text().orEmpty().let { parseStatus(it) }
         }
 
         return manga
@@ -133,7 +133,7 @@ class Mangahere : ParsedHttpSource() {
         else -> SManga.UNKNOWN
     }
 
-    override fun chapterListSelector() = ".detail_list > ul:not([class]) > li"
+    override fun chapterListSelector() = ".detail-main-list > li"
 
     override fun chapterFromElement(element: Element): SChapter {
         val parentEl = element.select("span.left").first()
